@@ -1,0 +1,13 @@
+[Unit]
+Description=Fixstars slack bot for manage computer account on slack
+Requires=network-online.target
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+ExecStart=/opt/sacana/sacana
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+

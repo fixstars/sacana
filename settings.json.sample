@@ -1,0 +1,1 @@
+{"SLACK_API_TOKEN": "your bot token here", "channels": ["tech-computers", "sacana-dev"], "public_key_uri_format": "https://github.com/{}.keys", "host_list_uri": "https://example.net/sacana/host_list.txt"}

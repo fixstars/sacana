@@ -1,0 +1,21 @@
+[package]
+name = "sacana"
+version = "1.0.0"
+authors = ["toru.fukaya", "yoshiki.imaizumi"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "sacana (Slackbot As Computer Account maNAger)はSlack上からコンピューター上のユーザーアカウントを操作するためのSlack botです。"
+readme = "README.md"
+categories = ["os"]
+keywords = ["slack", "bot", "account", "manager", "daemon"]
+
+[dependencies]
+serde_json = "1"
+websocket = "0.24.0"
+failure = "0.1.1"
+log = "0.4"
+env_logger = "0.7.1"
+chrono = "0.4.6"
+[dependencies.reqwest]
+version = "0.10.4"
+features = ["blocking"]

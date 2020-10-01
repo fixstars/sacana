@@ -1,0 +1,25 @@
+image: "rust:latest"
+
+before_script:
+  - apt-get update -yqq
+  - apt-get install -yqq --no-install-recommends libssl-dev
+
+# Use cargo to test the project
+check:stable:
+  tags:
+    - docker
+  script:
+    - rustup --version && rustup component add rustfmt clippy
+    - rustc --version && cargo --version
+    - cargo fmt --all -- --check
+    - cargo clippy
+
+check:beta:
+  tags:
+    - docker
+  script:
+    - rustup default beta
+    - rustup --version && rustup component add rustfmt clippy
+    - rustc --version && cargo --version
+    - cargo fmt --all -- --check
+    - cargo clippy
