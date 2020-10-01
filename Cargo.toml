@@ -8,6 +8,7 @@ description = "sacana (Slackbot As Computer Account maNAger)はSlack上からコ
 readme = "README.md"
 categories = ["os"]
 keywords = ["slack", "bot", "account", "manager", "daemon"]
+repository = "https://github.com/fixstars/sacana"
 
 [dependencies]
 serde_json = "1"
