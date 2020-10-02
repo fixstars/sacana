@@ -506,9 +506,6 @@ impl CommandHandler {
     }
 
     fn dm(&self, mes_json: serde_json::Value) -> Result<Option<chrono::NaiveDateTime>> {
-        if !self.pic_of_response {
-            return Ok(None);
-        }
         debug!("{}", serde_json::to_string_pretty(&mes_json)?);
         let raw_message = as_str(&mes_json["text"])?;
         debug!("Raw message:\n{}", raw_message);
@@ -525,10 +522,15 @@ impl CommandHandler {
             //DMの場合かつリプライではない場合、入力を全て受け取る
             raw_message.split_whitespace().collect()
         };
-        match (splitted_messages.first(), splitted_messages.len()) {
-            (Some(&"help"), 1) => self.help(user_id, channel, timestamp, true)?,
-            (Some(&"ping"), 1) => self.ping(channel, timestamp)?,
-            _ => self.invalid_command_sequence(user_id, channel, timestamp)?,
+        match (
+            splitted_messages.first(),
+            splitted_messages.len(),
+            self.pic_of_response,
+        ) {
+            (Some(&"help"), 1, true) => self.help(user_id, channel, timestamp, true)?,
+            (Some(&"ping"), 1, _) => self.ping(channel, timestamp)?,
+            (_, _, true) => self.invalid_command_sequence(user_id, channel, timestamp)?,
+            (_, _, false) => return Ok(None),
         }
         Ok(Some(to_naive_date_time(timestamp)?))
     }
