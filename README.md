@@ -18,6 +18,8 @@ Ubuntu 16.04, Ubuntu 18.04, CentOS 7.2で動作を確認しています。
 
 ## インストール
 
+1. 依存パッケージをインストールします。
+    - UbuntuなどDebian系では `sudo apt-get install passwd pkg-config libssl-dev` でインストール出来ます。
 1. [Rustをインストール](https://www.rust-lang.org/install.html)します。
     - 最新のstableの利用を推奨します。
 1. `cargo build --release`でビルドします。
