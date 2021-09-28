@@ -330,7 +330,7 @@ fn make_help_message(
             &DescriptionOrList::Description("Shows this message"),
             Some(&[make_available_channel_field(dm)]),
         ),
-        ("*_HOSTNAME_ list*", &DescriptionOrList::List(&hosts), None)
+        ("*_HOSTNAME_ list*", &DescriptionOrList::List(hosts), None)
     ])
 }
 
@@ -490,7 +490,7 @@ impl CommandHandler {
                     self.help(user_id, channel, timestamp, false)?;
                 }
                 Some(name) => {
-                    if self.hosts.iter().find(|&x| x == name).is_none() {
+                    if !self.hosts.iter().any(|x| x == name) {
                         post_message(
                             &self.api_token,
                             channel,
@@ -679,7 +679,7 @@ impl CommandHandler {
         for channel in &self.channels {
             let messages = conversations_history(
                 &self.api_token,
-                &channel,
+                channel,
                 &self.last_timestamp.as_ref().map(|x| to_string(x)),
             )?;
             let last_timestamp = if let Some(x) = messages.first() {

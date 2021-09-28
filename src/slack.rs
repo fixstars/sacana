@@ -150,7 +150,7 @@ fn get_users_list(
         let mut params = HashMap::new();
         params.insert("token", api_token);
         if let Some(ref c) = cursor {
-            params.insert("cursor", &c);
+            params.insert("cursor", c);
         }
         params.insert("limit", "200");
         params
@@ -170,7 +170,7 @@ fn get_users_list(
         as_array(&response["members"])?.clone(),
         response["response_metadata"]["next_cursor"]
             .as_str()
-            .and_then(|s| if s == "" { None } else { Some(s) })
+            .and_then(|s| if s.is_empty() { None } else { Some(s) })
             .map(std::string::ToString::to_string),
     ))
 }
@@ -202,7 +202,7 @@ pub fn conversations_history(
     param.insert("channel", channel);
     param.insert("limit", "200");
     if let Some(x) = last_timestamp {
-        param.insert("oldest", &x);
+        param.insert("oldest", x);
     }
     Ok(as_array(
         &reqwest::blocking::Client::new()
@@ -230,7 +230,7 @@ fn get_conversations_list(
         let mut params = HashMap::new();
         params.insert("token", api_token);
         if let Some(ref c) = cursor {
-            params.insert("cursor", &c);
+            params.insert("cursor", c);
         }
         if let Some(e) = exclude_archive {
             params.insert("exclude_archive", if e { "true" } else { "false" });
@@ -261,7 +261,7 @@ fn get_conversations_list(
         as_array(&response["channels"])?.clone(),
         response["response_metadata"]["next_cursor"]
             .as_str()
-            .and_then(|s| if s == "" { None } else { Some(s) })
+            .and_then(|s| if s.is_empty() { None } else { Some(s) })
             .map(std::string::ToString::to_string),
     ))
 }
