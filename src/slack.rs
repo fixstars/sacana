@@ -290,7 +290,7 @@ fn get_users_conversations(
             p.types = Some(&s);
         }
         p.user = user;
-        dbg!(p)
+        p
     };
     let response: UsersConversationsResponse = reqwest::blocking::Client::new()
         .get("https://slack.com/api/users.conversations")
