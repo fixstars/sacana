@@ -227,7 +227,7 @@ struct Cursor {
 }
 #[derive(Serialize, Debug)]
 struct UsersConversationsParams<'a> {
-    api_token: &'a str,
+    token: &'a str,
     cursor: Option<&'a str>,
     exclude_archive: Option<bool>,
     limit: Option<u16>,
@@ -236,9 +236,9 @@ struct UsersConversationsParams<'a> {
     user: Option<&'a str>,
 }
 impl<'a> UsersConversationsParams<'a> {
-    fn new(api_token: &'a str) -> Self {
+    fn new(token: &'a str) -> Self {
         UsersConversationsParams {
-            api_token,
+            token,
             cursor: None,
             exclude_archive: None,
             limit: None,
@@ -256,7 +256,7 @@ pub struct Channel {
 #[derive(Deserialize, Debug)]
 struct UsersConversationsResponce {
     ok: bool,
-    channels: Vec<Channel>,
+    channels: Option<Vec<Channel>>,
     response_metadata: Option<Cursor>,
     error: Option<String>,
 }
@@ -291,7 +291,8 @@ fn get_users_conversations(
         channels,
         response_metadata,
         error,
-    } = reqwest::blocking::Client::new()
+    }
+    = reqwest::blocking::Client::new()
         .get("https://slack.com/api/users.conversations")
         .header(
             reqwest::header::CONTENT_TYPE,
@@ -301,7 +302,12 @@ fn get_users_conversations(
         .send()?
         .json()?;
     if ok {
-        Ok((channels, response_metadata.map(|x| x.next_cursor)))
+        let next_cursor = response_metadata.unwrap().next_cursor;
+        if next_cursor.is_empty() {
+            Ok((channels.unwrap(), None))
+        } else {
+            Ok((channels.unwrap(), Some(next_cursor)))
+        }
     } else {
         let message = if let Some(e) = error {
             format!("API error: users.conversations failed \"{e}\"")
