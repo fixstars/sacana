@@ -9,8 +9,8 @@ use crate::runtime_error::{as_str, Result, RuntimeError};
 mod slack;
 use crate::slack::{
     add_reaction, channel_type, conversations_history, post_ephemeral_attachments, post_message,
-    post_message_to_thread, public_channel_list, rtm_connect, try_connect_to_slack_com, users_list,
-    ChannelType,
+    post_message_to_thread, rtm_connect, try_connect_to_slack_com, users_list,
+    users_public_channel_list, ChannelType,
 };
 
 mod linux_user_manage;
@@ -140,15 +140,10 @@ fn rtm_setup(
 /// `channel_names` で与えられたチャンネルが、公開チャンネルとして存在するか確認する
 fn check_channels(api_token: &str, channel_names: &[String]) -> Result<Vec<String>> {
     // 公開チャンネルの一覧を取得
-    let public_channels = public_channel_list(api_token)?
+    let public_channels = users_public_channel_list(api_token, None)?
         .into_iter()
-        .map(|v| {
-            Ok((
-                as_str(&v["name"])?.to_string(),
-                as_str(&v["id"])?.to_string(),
-            ))
-        })
-        .collect::<Result<HashMap<_, _>>>()?;
+        .map(|v| (v.name, v.id))
+        .collect::<HashMap<_, _>>();
     channel_names
         .iter()
         .map(|c| {

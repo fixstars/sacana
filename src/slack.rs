@@ -1,4 +1,5 @@
 use log::{debug, warn};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::runtime_error::{as_array, Result, RuntimeError};
@@ -100,6 +101,7 @@ pub fn rtm_connect(api_token: &str) -> Result<serde_json::Value> {
         .parse()?)
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum ChannelType {
     PublicChannel,
     PrivateChannel,
@@ -219,63 +221,108 @@ pub fn conversations_history(
     .clone())
 }
 
-fn get_conversations_list(
+#[derive(Serialize, Deserialize, Debug)]
+struct Cursor {
+    next_cursor: String,
+}
+#[derive(Serialize, Debug)]
+struct UsersConversationsParams<'a> {
+    api_token: &'a str,
+    cursor: Option<&'a str>,
+    exclude_archive: Option<bool>,
+    limit: Option<u16>,
+    team_id: Option<&'a str>,
+    types: Option<&'a str>,
+    user: Option<&'a str>,
+}
+impl<'a> UsersConversationsParams<'a> {
+    fn new(api_token: &'a str) -> Self {
+        UsersConversationsParams {
+            api_token,
+            cursor: None,
+            exclude_archive: None,
+            limit: None,
+            team_id: None,
+            types: None,
+            user: None,
+        }
+    }
+}
+#[derive(Deserialize, Debug)]
+pub struct Channel {
+    pub id: String,
+    pub name: String,
+}
+#[derive(Deserialize, Debug)]
+struct UsersConversationsResponce {
+    ok: bool,
+    channels: Vec<Channel>,
+    response_metadata: Option<Cursor>,
+    error: Option<String>,
+}
+
+fn get_users_conversations(
     api_token: &str,
     cursor: Option<String>,
     exclude_archive: Option<bool>,
-    types: Option<Vec<ChannelType>>,
-) -> Result<(Vec<serde_json::Value>, Option<String>)> {
-    let types_: String;
+    types: Option<&[ChannelType]>,
+    user: Option<&str>,
+) -> Result<(Vec<Channel>, Option<String>)> {
+    let s;
     let form_params = {
-        let mut params = HashMap::new();
-        params.insert("token", api_token);
-        if let Some(ref c) = cursor {
-            params.insert("cursor", c);
-        }
-        if let Some(e) = exclude_archive {
-            params.insert("exclude_archive", if e { "true" } else { "false" });
-        }
-        params.insert("limit", "200");
+        let mut p = UsersConversationsParams::new(api_token);
+        p.cursor = cursor.as_deref();
+        p.exclude_archive = exclude_archive;
+        p.limit = Some(200);
         if let Some(t) = types {
-            let mut ts = Vec::<&str>::new();
-            for x in t {
-                ts.push(get_channel_type_name_for_slack_api(x))
-            }
-            types_ = (&ts.join(",")).to_string();
-            params.insert("types", &types_);
+            let v = t
+                .iter()
+                .copied()
+                .map(get_channel_type_name_for_slack_api)
+                .collect::<Vec<_>>();
+            s = v.join(",");
+            p.types = Some(&s);
         }
-        params
+        p.user = user;
+        dbg!(p)
     };
-    let response = reqwest::blocking::Client::new()
-        .post("https://slack.com/api/conversations.list")
+    let UsersConversationsResponce {
+        ok,
+        channels,
+        response_metadata,
+        error,
+    } = reqwest::blocking::Client::new()
+        .get("https://slack.com/api/users.conversations")
         .header(
             reqwest::header::CONTENT_TYPE,
             "application/x-www-form-urlencoded; charset=utf-8",
         )
-        .form(&form_params)
+        .query(&form_params)
         .send()?
-        .text()?
-        .parse::<serde_json::Value>()?;
-    debug!("{}", serde_json::to_string_pretty(&response)?);
-    Ok((
-        as_array(&response["channels"])?.clone(),
-        response["response_metadata"]["next_cursor"]
-            .as_str()
-            .and_then(|s| if s.is_empty() { None } else { Some(s) })
-            .map(std::string::ToString::to_string),
-    ))
+        .json()?;
+    if ok {
+        Ok((channels, response_metadata.map(|x| x.next_cursor)))
+    } else {
+        let message = if let Some(e) = error {
+            format!("API error: users.conversations failed \"{e}\"")
+        } else {
+            "API error: users.conversations failed".to_string()
+        };
+        Err(RuntimeError::new(message).into())
+    }
 }
 
-/// 全てのpublic channelを取得
-pub fn public_channel_list(api_token: &str) -> Result<Vec<serde_json::Value>> {
+/// ユーザーが属している全てのpublic channelを取得
+pub fn users_public_channel_list(api_token: &str, user: Option<&str>) -> Result<Vec<Channel>> {
     let mut list = Vec::new();
     let mut cursor = None;
     loop {
-        let (mut ret, next_cursor) = get_conversations_list(
+        let (mut ret, next_cursor) = get_users_conversations(
             api_token,
             cursor,
             Some(true),
-            Some(vec![ChannelType::PublicChannel]),
+            Some(&[ChannelType::PublicChannel]),
+            user,
         )?;
         list.append(&mut ret);
         if next_cursor.is_some() {
