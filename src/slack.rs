@@ -254,11 +254,17 @@ pub struct Channel {
     pub name: String,
 }
 #[derive(Deserialize, Debug)]
-struct UsersConversationsResponce {
-    ok: bool,
-    channels: Option<Vec<Channel>>,
-    response_metadata: Option<Cursor>,
-    error: Option<String>,
+#[serde(untagged)]
+enum UsersConversationsResponse {
+    Ok {
+        ok: bool,
+        channels: Vec<Channel>,
+        response_metadata: Cursor,
+    },
+    Err {
+        ok: bool,
+        error: String,
+    },
 }
 
 fn get_users_conversations(
@@ -286,13 +292,7 @@ fn get_users_conversations(
         p.user = user;
         dbg!(p)
     };
-    let UsersConversationsResponce {
-        ok,
-        channels,
-        response_metadata,
-        error,
-    }
-    = reqwest::blocking::Client::new()
+    let response: UsersConversationsResponse = reqwest::blocking::Client::new()
         .get("https://slack.com/api/users.conversations")
         .header(
             reqwest::header::CONTENT_TYPE,
@@ -301,20 +301,25 @@ fn get_users_conversations(
         .query(&form_params)
         .send()?
         .json()?;
-    if ok {
-        let next_cursor = response_metadata.unwrap().next_cursor;
-        if next_cursor.is_empty() {
-            Ok((channels.unwrap(), None))
-        } else {
-            Ok((channels.unwrap(), Some(next_cursor)))
+    match response {
+        UsersConversationsResponse::Ok {
+            ok,
+            channels,
+            response_metadata,
+        } => {
+            debug_assert!(ok);
+            let next_cursor = response_metadata.next_cursor;
+            if next_cursor.is_empty() {
+                Ok((channels, None))
+            } else {
+                Ok((channels, Some(next_cursor)))
+            }
         }
-    } else {
-        let message = if let Some(e) = error {
-            format!("API error: users.conversations failed \"{e}\"")
-        } else {
-            "API error: users.conversations failed".to_string()
-        };
-        Err(RuntimeError::new(message).into())
+        UsersConversationsResponse::Err { ok, error } => {
+            debug_assert!(!ok);
+            let m = format!("API error: users.conversations failed \"{error}\"");
+            Err(RuntimeError::new(m).into())
+        }
     }
 }
 
