@@ -115,13 +115,10 @@ fn is_message_at_dm(mes_json: &serde_json::Value, api_token: &str, my_id: &str) 
     }
 }
 
+type WebSocket =
+    tungstenite::protocol::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
 /// RTMのセットアップ
-fn rtm_setup(
-    api_token: &str,
-) -> Result<(
-    String,
-    websocket::client::sync::Client<Box<dyn websocket::stream::sync::NetworkStream + Send>>,
-)> {
+fn rtm_setup(api_token: &str) -> Result<(String, WebSocket)> {
     try_connect_to_slack_com()?;
     // RTM の URL を取得
     let v = rtm_connect(api_token)?;
@@ -133,7 +130,8 @@ fn rtm_setup(
     debug!("My ID is {}.", my_id);
 
     // 先ほど取得したURLでRTMのクライアントを起動
-    let client = websocket::ClientBuilder::new(as_str(&v["url"])?)?.connect(None)?;
+    let (client, response) = tungstenite::client::connect(as_str(&v["url"])?)?;
+    debug!("{response:?}");
     Ok((my_id, client))
 }
 
@@ -744,21 +742,22 @@ fn main() {
     loop {
         let _ = || -> Result<()> {
             loop {
-                let message = client.recv_message();
+                let message = client.read();
                 let m = message?;
                 trace!("Recv: {:?}", m);
-                use websocket::message::OwnedMessage::*;
+                use tungstenite::protocol::Message::*;
                 match m {
                     Text(s) => command_handler.on_text(s)?,
                     Binary(_) => debug!("get binary"),
                     Close(_) => debug!("get closure"),
                     Ping(ping) => {
                         debug!("Ping");
-                        let pong = websocket::OwnedMessage::Pong(ping);
-                        client.send_message(&pong)?;
+                        let pong = Pong(ping);
                         debug!("Send {:?}", pong);
+                        client.send(pong)?;
                     }
                     Pong(_) => debug!("Pong"),
+                    Frame(x) => debug!("Frame({x:?})"),
                 }
             }
         }()
