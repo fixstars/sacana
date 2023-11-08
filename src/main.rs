@@ -675,7 +675,7 @@ impl CommandHandler {
             let messages = conversations_history(
                 &self.api_token,
                 channel,
-                &self.last_timestamp.as_ref().map(|x| to_string(x)),
+                &self.last_timestamp.as_ref().map(to_string),
             )?;
             let last_timestamp = if let Some(x) = messages.first() {
                 Some(to_naive_date_time(as_str(&x["ts"])?)?)
