@@ -332,7 +332,7 @@ pub fn users_public_channel_list(api_token: &str, user: Option<&str>) -> Result<
             api_token,
             cursor,
             Some(true),
-            Some(&[ChannelType::PublicChannel]),
+            Some(&[ChannelType::PublicChannel, ChannelType::PrivateChannel]),
             user,
         )?;
         list.append(&mut ret);
