@@ -6,7 +6,7 @@ use crate::runtime_error::{path_join, Result, RuntimeError};
 fn public_keys_exist(uri_format: &str, user_id: &str) -> Result<()> {
     let uri = uri_format.replace("{}", user_id);
     let response = reqwest::blocking::Client::new().head(&uri).send()?;
-    if (&response).status().is_success() {
+    if response.status().is_success() {
         Ok(())
     } else {
         Err(RuntimeError::new(format!("can't access {}: {}", uri, response.text()?)).into())
@@ -17,7 +17,7 @@ fn public_keys_exist(uri_format: &str, user_id: &str) -> Result<()> {
 fn get_public_keys(uri_format: &str, user_id: &str) -> Result<String> {
     let uri = uri_format.replace("{}", user_id);
     let response = reqwest::blocking::get(&uri)?;
-    if (&response).status().is_success() {
+    if response.status().is_success() {
         Ok(response.text()?)
     } else {
         Err(RuntimeError::new(format!(
@@ -97,7 +97,7 @@ fn create_ssh_directory(user_name: &str, local_host_name: &str) -> Result<String
 fn overwrite_ssh_public_key(ssh_dir: &str, user_name: &str, uri_format: &str) -> Result<()> {
     let path = path_join(&[ssh_dir, "authorized_keys"])?;
     let keys = get_public_keys(uri_format, user_name)?;
-    std::io::BufWriter::new(std::fs::File::create(&path)?).write_all(&keys.into_bytes())?;
+    std::io::BufWriter::new(std::fs::File::create(path)?).write_all(&keys.into_bytes())?;
     Ok(())
 }
 
