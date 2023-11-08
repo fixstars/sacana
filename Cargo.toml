@@ -11,13 +11,11 @@ keywords = ["slack", "bot", "account", "manager", "daemon"]
 repository = "https://github.com/fixstars/sacana"
 
 [dependencies]
-serde_json = "1"
-websocket = "0.26.5"
-failure = "0.1.1"
-log = "0.4"
-env_logger = "0.9.0"
-chrono = "0.4.6"
-serde = { version = "1.0.175", features = ["derive"] }
-[dependencies.reqwest]
-version = "0.11.11"
-features = ["blocking", "json"]
+chrono = "0.4.31"
+env_logger = "0.10.0"
+failure = "0.1.8"
+log = "0.4.20"
+reqwest = { version = "0.11.22", features = ["blocking", "json"] }
+serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "1.0.108"
+websocket = "0.27.0"
