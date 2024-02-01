@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::Read;
 
 mod runtime_error;
-use crate::runtime_error::{as_str, Result, RuntimeError};
+use crate::runtime_error::{as_str, Error, Result};
 
 mod slack;
 use crate::slack::{
@@ -147,7 +147,7 @@ fn check_channels(api_token: &str, channel_names: &[String]) -> Result<Vec<Strin
         .map(|c| {
             Ok(public_channels
                 .get(c)
-                .ok_or_else(|| RuntimeError::new(format!("there is no channel named {}", c)))?
+                .ok_or_else(|| Error::NoChannel(c.clone()))?
                 .to_string())
         })
         .collect()
@@ -589,11 +589,7 @@ impl CommandHandler {
             match mes_type.trim_matches('"') {
                 "message" => false,
                 "hello" => true,
-                "goodbye" => {
-                    return Err(
-                        RuntimeError::new("goodbye event was caught. try to reconenct...").into(),
-                    )
-                }
+                "goodbye" => return Err(Error::CaughtGoodBye),
                 "user_change" => {
                     if let Some(x) = self.users.get_mut(as_str(&mes_json["user"]["id"])?) {
                         *x = as_str(&mes_json["user"]["profile"]["display_name_normalized"])?
@@ -620,7 +616,7 @@ impl CommandHandler {
                 _ => false,
             }
         } else {
-            return Err(RuntimeError::new("receive non-event object on RTM").into());
+            return Err(Error::NonEvent);
         })
     }
 

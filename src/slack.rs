@@ -2,7 +2,16 @@ use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::runtime_error::{as_array, Result, RuntimeError};
+use crate::runtime_error::{as_array, Result};
+#[derive(thiserror::Error, Debug)]
+pub enum SlackError {
+    #[error("connecting to slack.com failed")]
+    ConnectFailed,
+    #[error("invalid conversation object")]
+    InvaliedConversation,
+    #[error("API error: users.conversations failed \"{0}\"")]
+    UsersConversations(String),
+}
 
 fn post(api_token: &str, body: HashMap<&str, &str>, uri: &str) -> Result<()> {
     debug!("{:?}", body);
@@ -88,7 +97,7 @@ pub fn try_connect_to_slack_com() -> Result<()> {
             std::thread::sleep(SLEEP_TIME);
         }
     }
-    Err(RuntimeError::new("connecting to slack.com failed").into())
+    Err(SlackError::ConnectFailed.into())
 }
 
 /// Real Time Messaging session を開始する
@@ -140,7 +149,7 @@ pub fn channel_type(api_token: &str, channel: &str) -> Result<ChannelType> {
     } else if let Some(true) = response["is_im"].as_bool() {
         ChannelType::DirectMessage
     } else {
-        return Err(RuntimeError::new("invalid conversation object").into());
+        return Err(SlackError::InvaliedConversation.into());
     })
 }
 
@@ -317,8 +326,7 @@ fn get_users_conversations(
         }
         UsersConversationsResponse::Err { ok, error } => {
             debug_assert!(!ok);
-            let m = format!("API error: users.conversations failed \"{error}\"");
-            Err(RuntimeError::new(m).into())
+            Err(SlackError::UsersConversations(error).into())
         }
     }
 }
