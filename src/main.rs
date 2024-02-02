@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::Read;
 
 mod runtime_error;
-use crate::runtime_error::{as_str, Result, RuntimeError};
+use crate::runtime_error::{as_str, Error, Result};
 
 mod slack;
 use crate::slack::{
@@ -115,13 +115,10 @@ fn is_message_at_dm(mes_json: &serde_json::Value, api_token: &str, my_id: &str) 
     }
 }
 
+type WebSocket =
+    tungstenite::protocol::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
 /// RTMのセットアップ
-fn rtm_setup(
-    api_token: &str,
-) -> Result<(
-    String,
-    websocket::client::sync::Client<Box<dyn websocket::stream::sync::NetworkStream + Send>>,
-)> {
+fn rtm_setup(api_token: &str) -> Result<(String, WebSocket)> {
     try_connect_to_slack_com()?;
     // RTM の URL を取得
     let v = rtm_connect(api_token)?;
@@ -133,7 +130,8 @@ fn rtm_setup(
     debug!("My ID is {}.", my_id);
 
     // 先ほど取得したURLでRTMのクライアントを起動
-    let client = websocket::ClientBuilder::new(as_str(&v["url"])?)?.connect(None)?;
+    let (client, response) = tungstenite::client::connect(as_str(&v["url"])?)?;
+    debug!("{response:?}");
     Ok((my_id, client))
 }
 
@@ -149,7 +147,7 @@ fn check_channels(api_token: &str, channel_names: &[String]) -> Result<Vec<Strin
         .map(|c| {
             Ok(public_channels
                 .get(c)
-                .ok_or_else(|| RuntimeError::new(format!("there is no channel named {}", c)))?
+                .ok_or_else(|| Error::NoChannel(c.clone()))?
                 .to_string())
         })
         .collect()
@@ -591,11 +589,7 @@ impl CommandHandler {
             match mes_type.trim_matches('"') {
                 "message" => false,
                 "hello" => true,
-                "goodbye" => {
-                    return Err(
-                        RuntimeError::new("goodbye event was caught. try to reconenct...").into(),
-                    )
-                }
+                "goodbye" => return Err(Error::CaughtGoodBye),
                 "user_change" => {
                     if let Some(x) = self.users.get_mut(as_str(&mes_json["user"]["id"])?) {
                         *x = as_str(&mes_json["user"]["profile"]["display_name_normalized"])?
@@ -622,7 +616,7 @@ impl CommandHandler {
                 _ => false,
             }
         } else {
-            return Err(RuntimeError::new("receive non-event object on RTM").into());
+            return Err(Error::NonEvent);
         })
     }
 
@@ -744,21 +738,22 @@ fn main() {
     loop {
         let _ = || -> Result<()> {
             loop {
-                let message = client.recv_message();
+                let message = client.read();
                 let m = message?;
                 trace!("Recv: {:?}", m);
-                use websocket::message::OwnedMessage::*;
+                use tungstenite::protocol::Message::*;
                 match m {
                     Text(s) => command_handler.on_text(s)?,
                     Binary(_) => debug!("get binary"),
                     Close(_) => debug!("get closure"),
                     Ping(ping) => {
                         debug!("Ping");
-                        let pong = websocket::OwnedMessage::Pong(ping);
-                        client.send_message(&pong)?;
+                        let pong = Pong(ping);
                         debug!("Send {:?}", pong);
+                        client.send(pong)?;
                     }
                     Pong(_) => debug!("Pong"),
+                    Frame(x) => debug!("Frame({x:?})"),
                 }
             }
         }()

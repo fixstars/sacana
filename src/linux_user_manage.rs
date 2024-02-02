@@ -1,6 +1,27 @@
 use std::io::{BufRead, Write};
 
-use crate::runtime_error::{path_join, Result, RuntimeError};
+use crate::runtime_error::{path_join, Result};
+#[derive(thiserror::Error, Debug)]
+pub enum LinuxError {
+    #[error("can't access {0}: {1}")]
+    HeadPublicKey(String, String),
+    #[error("get public key from {0} failed: {1}")]
+    GetPublicKey(String, String),
+    #[error("`{0}` failed. status code: {1}")]
+    Command(&'static str, i32),
+    #[error("`{0}` is killed by signal")]
+    CommandKilled(&'static str),
+}
+
+fn from_command_status(command: &'static str, es: std::process::ExitStatus) -> Result<()> {
+    if es.success() {
+        Ok(())
+    } else if let Some(c) = es.code() {
+        Err(LinuxError::Command(command, c).into())
+    } else {
+        Err(LinuxError::CommandKilled(command).into())
+    }
+}
 
 /// uri_format が指すuriに user_id のpublic keyが存在するかどうかを判定
 fn public_keys_exist(uri_format: &str, user_id: &str) -> Result<()> {
@@ -9,7 +30,7 @@ fn public_keys_exist(uri_format: &str, user_id: &str) -> Result<()> {
     if response.status().is_success() {
         Ok(())
     } else {
-        Err(RuntimeError::new(format!("can't access {}: {}", uri, response.text()?)).into())
+        Err(LinuxError::HeadPublicKey(uri, response.text()?).into())
     }
 }
 
@@ -20,12 +41,7 @@ fn get_public_keys(uri_format: &str, user_id: &str) -> Result<String> {
     if response.status().is_success() {
         Ok(response.text()?)
     } else {
-        Err(RuntimeError::new(format!(
-            "get public key from {} failed: {}",
-            uri,
-            response.text()?
-        ))
-        .into())
+        Err(LinuxError::GetPublicKey(uri, response.text()?).into())
     }
 }
 
@@ -65,17 +81,7 @@ fn add_user(user_name: &str, local_host_name: &str) -> Result<()> {
         .arg("")
         .arg(user_name)
         .output()?;
-    if !useradd.status.success() {
-        return Err(RuntimeError::new(format!(
-            "`useradd` failed. status code: {}",
-            useradd
-                .status
-                .code()
-                .ok_or_else(|| RuntimeError::new("`useradd` is killed by signal"))?
-        ))
-        .into());
-    }
-    Ok(())
+    from_command_status("useradd", useradd.status)
 }
 
 /// user_name の $HOME に .ssh を作成し、そのパスを取得
@@ -107,32 +113,13 @@ fn set_owner_and_permission(ssh_dir: &str, user_name: &str) -> Result<()> {
         .arg("700")
         .arg(ssh_dir)
         .output()?;
-    if !chmod.status.success() {
-        return Err(RuntimeError::new(format!(
-            "`chmod` failed. status code: {}",
-            chmod
-                .status
-                .code()
-                .ok_or_else(|| RuntimeError::new("chmod is killed by signal"))?
-        ))
-        .into());
-    }
+    from_command_status("chmod", chmod.status)?;
     let chown = std::process::Command::new("chown")
         .arg("-R")
         .arg(format!("{0}:{0}", user_name))
         .arg(ssh_dir)
         .output()?;
-    if !chown.status.success() {
-        return Err(RuntimeError::new(format!(
-            "chown failed. status code: {}",
-            chown
-                .status
-                .code()
-                .ok_or_else(|| RuntimeError::new("chown is killed by signal"))?
-        ))
-        .into());
-    }
-    Ok(())
+    from_command_status("chown", chown.status)
 }
 
 /// ユーザーのauthorized_keysを更新
@@ -162,15 +149,5 @@ pub fn join_group(user_name: &str, group_name: &str, local_host_name: &str) -> R
         .arg(group_name)
         .arg(user_name)
         .output()?;
-    if !usermod.status.success() {
-        return Err(RuntimeError::new(format!(
-            "usermod failed. status code: {}",
-            usermod
-                .status
-                .code()
-                .ok_or_else(|| RuntimeError::new("usermod is killed by signal"))?
-        ))
-        .into());
-    }
-    Ok(())
+    from_command_status("usermod", usermod.status)
 }
