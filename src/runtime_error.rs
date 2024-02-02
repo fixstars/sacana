@@ -9,9 +9,9 @@ pub enum JsonError {
 pub enum Error {
     #[error("Internal error: {0}")]
     Json(#[from] JsonError),
-    #[error("Slack error: {0}")]
+    #[error(transparent)]
     Slack(#[from] crate::slack::SlackError),
-    #[error("Linux error: {0}")]
+    #[error(transparent)]
     Linux(#[from] crate::linux_user_manage::LinuxError),
     #[error("Internal error: path -> str conversion failed")]
     PathToStr,
