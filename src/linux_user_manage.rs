@@ -59,13 +59,42 @@ fn etc_passwd(user_id: &str) -> Result<Option<String>> {
     Ok(None)
 }
 
+/// /etc/group に gid の行があるか判定する
+fn group_exist(gid: &str) -> Result<bool> {
+    let file = std::fs::File::open("/etc/group")?;
+    for line in std::io::BufReader::new(&file).lines() {
+        let l = line?;
+        if let Some(g) = l.clone().split(':').nth(3) {
+            if g == gid {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// グループを作成
+fn groupadd(id: &str, name: &str) -> Result<()> {
+    let groupadd = std::process::Command::new("groupadd")
+        .arg("-g")
+        .arg(id)
+        .arg(name)
+        .output()?;
+    from_command_status("groupadd", groupadd.status)
+}
+
 /// etc_passwdの結果からユーザーのホームディレクトリを取得
 fn home_directory(passwd_line: String) -> String {
     passwd_line.split(':').nth(5).unwrap().to_string()
 }
 
 /// ユーザーを作成
-fn add_user(user_name: &str, local_host_name: &str) -> Result<()> {
+fn add_user(
+    user_name: &str,
+    local_host_name: &str,
+    uid: Option<&str>,
+    gid: Option<&str>,
+) -> Result<()> {
     if etc_passwd(user_name)?.is_some() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
@@ -73,14 +102,20 @@ fn add_user(user_name: &str, local_host_name: &str) -> Result<()> {
         )
         .into());
     }
-    let useradd = std::process::Command::new("useradd")
+    let mut useradd = std::process::Command::new("useradd");
+    useradd
         .arg("-m")
         .arg("-s")
         .arg("/bin/bash")
         .arg("-p")
-        .arg("")
-        .arg(user_name)
-        .output()?;
+        .arg("");
+    if let Some(uid) = uid {
+        useradd.arg("-u").arg(uid);
+    }
+    if let Some(gid) = gid {
+        useradd.arg("-g").arg(gid);
+    }
+    let useradd = useradd.arg(user_name).output()?;
     from_command_status("useradd", useradd.status)
 }
 
@@ -130,9 +165,20 @@ pub fn update_account(user_name: &str, local_host_name: &str, uri_format: &str) 
 }
 
 /// アカウントを作成
-pub fn create_account(user_name: &str, local_host_name: &str, uri_format: &str) -> Result<()> {
+pub fn create_account(
+    user_name: &str,
+    local_host_name: &str,
+    uri_format: &str,
+    uid: Option<&str>,
+    gid: Option<&str>,
+) -> Result<()> {
     public_keys_exist(uri_format, user_name)?;
-    add_user(user_name, local_host_name)?;
+    if let Some(gid) = gid {
+        if !group_exist(gid)? {
+            groupadd(gid, user_name)?;
+        }
+    }
+    add_user(user_name, local_host_name, uid, gid)?;
     update_account(user_name, local_host_name, uri_format)
 }
 
