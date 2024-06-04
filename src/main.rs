@@ -294,6 +294,14 @@ fn make_help_message(
             ]),
         ),
         (
+            &format!("*<@{}> create _HOSTNAME_ UID GID*", my_id),
+            &DescriptionOrList::Description("Creates you an account on _HOSTNAME_ and set UID and GID"),
+            Some(&[
+                make_hostname_field("create your account"),
+                make_available_channel_field(channels_names.clone()),
+            ]),
+        ),
+        (
             &format!("*<@{}> update _HOSTNAME_*", my_id),
             &DescriptionOrList::Description(&format!("Retrieves all public keys from `{}` and add them to `$HOME/.ssh/authorized_keys` (this command *WILL OVERWRITE* your `$HOME/.ssh/authorized_keys`)", uri)),
             Some(&[
