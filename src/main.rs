@@ -286,16 +286,8 @@ fn make_help_message(
         channels_names.clone() + if channels_names.is_empty() { "" } else { ", " } + &dm;
     make_attributes([
         (
-            &format!("*<@{}> create _HOSTNAME_*", my_id),
+            &format!("*<@{}> create _HOSTNAME_ [UID GID]*", my_id),
             &DescriptionOrList::Description("Creates you an account on _HOSTNAME_"),
-            Some(&[
-                make_hostname_field("create your account"),
-                make_available_channel_field(channels_names.clone()),
-            ]),
-        ),
-        (
-            &format!("*<@{}> create _HOSTNAME_ UID GID*", my_id),
-            &DescriptionOrList::Description("Creates you an account on _HOSTNAME_ and set UID and GID"),
             Some(&[
                 make_hostname_field("create your account"),
                 make_available_channel_field(channels_names.clone()),
