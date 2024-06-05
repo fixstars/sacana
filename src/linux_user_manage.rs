@@ -11,6 +11,8 @@ pub enum LinuxError {
     Command(&'static str, i32),
     #[error("`{0}` is killed by signal")]
     CommandKilled(&'static str),
+    #[error("GID {0} already exists: {1}")]
+    GIDAlreadyExists(String, String),
 }
 
 fn from_command_status(command: &'static str, es: std::process::ExitStatus) -> Result<()> {
@@ -59,18 +61,17 @@ fn etc_passwd(user_id: &str) -> Result<Option<String>> {
     Ok(None)
 }
 
-/// /etc/group に gid の行があるか判定する
-fn group_exist(gid: &str) -> Result<bool> {
+/// 指定した gid を持つグループ名を /etc/group から探す
+fn group_exist(gid: &str) -> Result<Option<String>> {
     let file = std::fs::File::open("/etc/group")?;
     for line in std::io::BufReader::new(&file).lines() {
         let l = line?;
-        if let Some(g) = l.clone().split(':').nth(3) {
-            if g == gid {
-                return Ok(true);
-            }
+        let fields = l.split(':').collect::<Vec<_>>();
+        if gid == fields[2] {
+            return Ok(Some(fields[0].to_owned()));
         }
     }
-    Ok(false)
+    Ok(None)
 }
 
 /// グループを作成
@@ -174,9 +175,10 @@ pub fn create_account(
 ) -> Result<()> {
     public_keys_exist(uri_format, user_name)?;
     if let Some(gid) = gid {
-        if !group_exist(gid)? {
-            groupadd(gid, user_name)?;
+        if let Some(group_name) = group_exist(gid)? {
+            return Err(LinuxError::GIDAlreadyExists(gid.to_owned(), group_name).into());
         }
+        groupadd(gid, user_name)?;
     }
     add_user(user_name, local_host_name, uid, gid)?;
     update_account(user_name, local_host_name, uri_format)
