@@ -84,6 +84,14 @@ fn groupadd(id: &str, name: &str) -> Result<()> {
     from_command_status("groupadd", groupadd.status)
 }
 
+/// 引数で与えたgidを持つグループを新規に作成する
+fn create_group(gid: &str, group_name: &str) -> Result<()> {
+    if let Some(group_name) = group_exist(gid)? {
+        return Err(LinuxError::GIDAlreadyExists(gid.to_owned(), group_name).into());
+    }
+    groupadd(gid, group_name)
+}
+
 /// etc_passwdの結果からユーザーのホームディレクトリを取得
 fn home_directory(passwd_line: String) -> String {
     passwd_line.split(':').nth(5).unwrap().to_string()
@@ -175,10 +183,7 @@ pub fn create_account(
 ) -> Result<()> {
     public_keys_exist(uri_format, user_name)?;
     if let Some(gid) = gid {
-        if let Some(group_name) = group_exist(gid)? {
-            return Err(LinuxError::GIDAlreadyExists(gid.to_owned(), group_name).into());
-        }
-        groupadd(gid, user_name)?;
+        create_group(gid, user_name)?;
     }
     add_user(user_name, local_host_name, uid, gid)?;
     update_account(user_name, local_host_name, uri_format)
