@@ -503,7 +503,7 @@ impl CommandHandler {
                 }
             }
         }
-        Ok(hostname.is_some() && hostname.unwrap() == &self.local_host_name)
+        Ok(hostname.is_some() && hostname.unwrap() == self.local_host_name)
     }
 
     fn dm(&self, mes_json: serde_json::Value) -> Result<Option<chrono::NaiveDateTime>> {
