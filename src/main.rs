@@ -166,6 +166,16 @@ fn get_users(api_token: &str) -> Result<HashMap<String, String>> {
         .collect()
 }
 
+fn get_default_group(settings: &serde_json::Value) -> Vec<String> {
+    let Some(v) = settings.get("default_group").and_then(|v| v.as_array()) else {
+        return Vec::new();
+    };
+    v.iter()
+        .filter_map(|v| v.as_str())
+        .map(|s| s.to_owned())
+        .collect()
+}
+
 const ATTRIBUTE_NUMS: usize = 6usize;
 fn make_hostname_field(what: &str) -> serde_json::Map<String, serde_json::Value> {
     vec![
@@ -334,6 +344,7 @@ struct CommandHandler {
     hosts: Vec<String>,
     channels: Vec<String>,
     users: HashMap<String, String>,
+    default_group: Vec<String>,
     my_id: String,
     uri_format: String,
     last_timestamp: Option<chrono::NaiveDateTime>,
@@ -437,7 +448,14 @@ impl CommandHandler {
             user_id,
             channel,
             timestamp,
-            create_account(user_name, &self.local_host_name, &self.uri_format, uid, gid),
+            create_account(
+                user_name,
+                &self.local_host_name,
+                &self.uri_format,
+                uid,
+                gid,
+                &self.default_group,
+            ),
             &format!("{} create account", user_name),
             "creating account is succeeded.",
         )
@@ -772,6 +790,7 @@ fn main() {
         hosts,
         channels: check_channels(&api_token, &channel_names).unwrap(),
         users: get_users(&api_token).unwrap(),
+        default_group: get_default_group(&settings),
         my_id,
         uri_format,
         last_timestamp: None,

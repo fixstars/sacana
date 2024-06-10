@@ -180,12 +180,16 @@ pub fn create_account(
     uri_format: &str,
     uid: Option<&str>,
     gid: Option<&str>,
+    default_group: &[String],
 ) -> Result<()> {
     public_keys_exist(uri_format, user_name)?;
     if let Some(gid) = gid {
         create_group(gid, user_name)?;
     }
     add_user(user_name, local_host_name, uid, gid)?;
+    for group in default_group {
+        join_group(user_name, group, local_host_name)?;
+    }
     update_account(user_name, local_host_name, uri_format)
 }
 
