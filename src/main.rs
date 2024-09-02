@@ -286,7 +286,7 @@ fn make_help_message(
         channels_names.clone() + if channels_names.is_empty() { "" } else { ", " } + &dm;
     make_attributes([
         (
-            &format!("*<@{}> create _HOSTNAME_*", my_id),
+            &format!("*<@{}> create _HOSTNAME_ [UID GID]*", my_id),
             &DescriptionOrList::Description("Creates you an account on _HOSTNAME_"),
             Some(&[
                 make_hostname_field("create your account"),
@@ -424,12 +424,20 @@ impl CommandHandler {
         )
     }
     /// create
-    fn create(&self, user_id: &str, user_name: &str, channel: &str, timestamp: &str) -> Result<()> {
+    fn create(
+        &self,
+        user_id: &str,
+        user_name: &str,
+        channel: &str,
+        timestamp: &str,
+        uid: Option<&str>,
+        gid: Option<&str>,
+    ) -> Result<()> {
         self.handle_command_result(
             user_id,
             channel,
             timestamp,
-            create_account(user_name, &self.local_host_name, &self.uri_format),
+            create_account(user_name, &self.local_host_name, &self.uri_format, uid, gid),
             &format!("{} create account", user_name),
             "creating account is succeeded.",
         )
@@ -469,7 +477,7 @@ impl CommandHandler {
         user_id: &str,
         channel: &str,
         timestamp: &str,
-        hostname: Option<&&str>,
+        hostname: Option<&str>,
     ) -> Result<bool> {
         if self.pic_of_response {
             match hostname {
@@ -495,7 +503,7 @@ impl CommandHandler {
                 }
             }
         }
-        Ok(hostname.is_some() && hostname.unwrap() == &self.local_host_name)
+        Ok(hostname.is_some() && hostname.unwrap() == self.local_host_name)
     }
 
     fn dm(&self, mes_json: serde_json::Value) -> Result<Option<chrono::NaiveDateTime>> {
@@ -543,6 +551,7 @@ impl CommandHandler {
         let raw_message = as_str(&mes_json["text"])?;
         debug!("Raw message:\n{}", raw_message);
         let user_id = as_str(&mes_json["user"])?;
+        debug!("user_id = {user_id}");
         let timestamp = as_str(&mes_json["ts"])?;
         let splitted_messages: Vec<&str> = raw_message.split_whitespace().skip(1).collect();
         match (splitted_messages.first(), splitted_messages.len()) {
@@ -558,17 +567,53 @@ impl CommandHandler {
             }
             (Some(&"ping"), 1) => self.ping(channel, timestamp)?,
             (Some(&"create"), 2) => {
-                if self.check_host_name(user_id, channel, timestamp, splitted_messages.last())? {
-                    self.create(user_id, &self.users[user_id], channel, timestamp)?
+                if self.check_host_name(
+                    user_id,
+                    channel,
+                    timestamp,
+                    splitted_messages.last().copied(),
+                )? {
+                    debug!("user_name = {}", self.users[user_id]);
+                    self.create(
+                        user_id,
+                        &self.users[user_id],
+                        channel,
+                        timestamp,
+                        None,
+                        None,
+                    )?
+                }
+            }
+            (Some(&"create"), 4) => {
+                if self.check_host_name(user_id, channel, timestamp, Some(splitted_messages[1]))? {
+                    debug!("user_name = {}", self.users[user_id]);
+                    self.create(
+                        user_id,
+                        &self.users[user_id],
+                        channel,
+                        timestamp,
+                        Some(splitted_messages[2]),
+                        Some(splitted_messages[3]),
+                    )?
                 }
             }
             (Some(&"update"), 2) => {
-                if self.check_host_name(user_id, channel, timestamp, splitted_messages.last())? {
+                if self.check_host_name(
+                    user_id,
+                    channel,
+                    timestamp,
+                    splitted_messages.last().copied(),
+                )? {
                     self.update(user_id, &self.users[user_id], channel, timestamp)?
                 }
             }
             (Some(&"join"), 3) => {
-                if self.check_host_name(user_id, channel, timestamp, splitted_messages.last())? {
+                if self.check_host_name(
+                    user_id,
+                    channel,
+                    timestamp,
+                    splitted_messages.last().copied(),
+                )? {
                     self.join(
                         user_id,
                         &self.users[user_id],
