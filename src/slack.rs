@@ -149,7 +149,7 @@ pub fn channel_type(api_token: &str, channel: &str) -> Result<ChannelType> {
     } else if let Some(true) = response["is_im"].as_bool() {
         ChannelType::DirectMessage
     } else {
-        return Err(SlackError::InvaliedConversation.into());
+        return Err(SlackError::InvalidConversation.into());
     })
 }
 
