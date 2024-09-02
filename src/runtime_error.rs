@@ -27,7 +27,7 @@ pub enum Error {
     ChronoParse(#[from] chrono::ParseError),
     #[error("WebSocket error: {0}")]
     WebSocket(#[from] tungstenite::Error),
-    #[error("goodbye event was caught. try to reconenct...")]
+    #[error("goodbye event was caught. try to reconnect...")]
     CaughtGoodBye,
     #[error("receive non-event object on RTM")]
     NonEvent,
