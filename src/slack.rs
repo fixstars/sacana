@@ -8,7 +8,7 @@ pub enum SlackError {
     #[error("connecting to slack.com failed")]
     ConnectFailed,
     #[error("invalid conversation object")]
-    InvaliedConversation,
+    InvalidConversation,
     #[error("API error: users.conversations failed \"{0}\"")]
     UsersConversations(String),
 }
